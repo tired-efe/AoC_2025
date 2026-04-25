@@ -1,4 +1,14 @@
 from collections import deque
+import numpy as np
+from scipy.optimize import linprog
+
+
+def apply(state: tuple[int, ...], button: tuple[int, ...]):
+    new_state = list(state)
+    for index in button:
+        new_state[index] += 1
+    return new_state
+
 
 machines = open(0).read().splitlines()
 
@@ -19,36 +29,20 @@ for machine in machines:
 # print(joltage_req)
 solution_for_machines = []
 
-for i, machine in enumerate(machines):
-    print(i)
-    current_machine_options = deque()
+total = 0
+# print(f"{machines_buttons = }")
+# print(f"{joltage_req = }")
 
-    joltage = tuple([0] * len(joltage_req[i]))
-    current_machine_options.append((0, joltage))
-    past_options = {joltage}
-    while current_machine_options:
-        current_number, current_joltage = current_machine_options.popleft()
-        if current_joltage == joltage_req[i]:
-            solution_for_machines.append(current_number)
-            # print(current_number, current_lights)
-            break
-        for button in machines_buttons[i]:
-            new_joltage = list(current_joltage)
-            overflow = False
-            for number in button:
-                new_joltage[number] += 1
-                if new_joltage[number] > joltage_req[i][number]:
-                    overflow = True
-                    break
-            if overflow:
-                continue
-            if tuple(new_joltage) in past_options:
-                continue
-            past_options.add(tuple(new_joltage))
-            current_machine_options.append((current_number + 1, tuple(new_joltage)))
+for target, buttons in zip(joltage_req, machines_buttons):
+    vectors = [apply(tuple(0 for _ in target), button) for button in buttons]
 
-button_presses = 0
-for number in solution_for_machines:
-    button_presses += number
+    a_eq = np.stack(vectors, axis=1, dtype=np.int64)
+    b_eq = np.array(target, dtype=np.int64)
+    c = np.ones(len(vectors), dtype=np.int64)
+    result = linprog(c, A_eq=a_eq, b_eq=b_eq, integrality=1)
 
-print(button_presses)
+    if result.success:
+        total += round(result.fun)
+    else:
+        raise ValueError("No solution")
+print(total)
